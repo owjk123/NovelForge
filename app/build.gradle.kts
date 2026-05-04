@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -6,10 +9,10 @@ plugins {
 }
 
 // Read API config from local.properties
-val localProperties = java.util.Properties().apply {
+val localProperties = Properties().apply {
     val localFile = rootProject.file("local.properties")
     if (localFile.exists()) {
-        load(localFile.inputStream())
+        load(FileInputStream(localFile))
     }
 }
 
