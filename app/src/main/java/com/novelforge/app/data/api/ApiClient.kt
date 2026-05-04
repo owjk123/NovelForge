@@ -1,13 +1,11 @@
 package com.novelforge.app.data.api
 
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.novelforge.app.BuildConfig
 import kotlinx.serialization.json.Json
-import okhttp3.OkHttpClient
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {

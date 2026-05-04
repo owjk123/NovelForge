@@ -135,6 +135,7 @@ fun HomeScreen(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun GenreSelector(
     selectedGenre: NovelGenre,
     onGenreSelected: (NovelGenre) -> Unit

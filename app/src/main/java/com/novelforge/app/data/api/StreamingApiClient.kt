@@ -1,19 +1,16 @@
 package com.novelforge.app.data.api
 
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.ResponseBody
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
-import retrofit2.converter.kotlinx.serialization.asConverterFactory
 import java.util.concurrent.TimeUnit
-import kotlin.coroutines.resume
-import kotlin.coroutines.resumeWithException
-import kotlin.coroutines.suspendCoroutine
 
 sealed class StreamResult {
     data class OnNext(val content: String) : StreamResult()
@@ -38,18 +35,6 @@ class StreamingApiClient {
         .build()
     
     private val apiService: GrokApiService = retrofit.create(GrokApiService::class.java)
-    
-    fun streamGenerate(request: GrokRequest): Flow<StreamResult> = flow {
-        try {
-            val response = apiService.createChatCompletion(request)
-            response.choices?.firstOrNull()?.message?.content?.let { content ->
-                emit(StreamResult.OnNext(content))
-            }
-            emit(StreamResult.OnComplete)
-        } catch (e: Exception) {
-            emit(StreamResult.OnError(e.message ?: "Unknown error"))
-        }
-    }.flowOn(Dispatchers.IO)
     
     suspend fun generate(request: GrokRequest): Result<String> = withContext(Dispatchers.IO) {
         try {
