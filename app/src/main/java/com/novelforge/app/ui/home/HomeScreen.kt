@@ -1,19 +1,24 @@
 package com.novelforge.app.ui.home
 
+import android.app.Application
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.LibraryBooks
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novelforge.app.R
+import com.novelforge.app.data.preference.SettingsManager
 import com.novelforge.app.domain.prompt.NovelGenre
 import com.novelforge.app.viewmodel.HomeViewModel
 
@@ -22,11 +27,22 @@ import com.novelforge.app.viewmodel.HomeViewModel
 fun HomeScreen(
     onNavigateToLibrary: () -> Unit,
     onNavigateToWriting: (Long) -> Unit,
+    onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    
+    val context = LocalContext.current
+    val settingsManager = remember { SettingsManager(context.applicationContext) }
+
+    // 收集当前配置
+    val currentEndpoint by settingsManager.selectedEndpoint.collectAsState(initial = SettingsManager.DEFAULT_ENDPOINT)
+    val currentModel by settingsManager.modelName.collectAsState(initial = SettingsManager.DEFAULT_MODEL)
+    val customModelName by settingsManager.customModelName.collectAsState(initial = "")
+
+    val displayEndpoint = settingsManager.getEndpointDisplayName(currentEndpoint)
+    val displayModel = if (currentModel == "custom") customModelName else currentModel
+
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
@@ -52,6 +68,12 @@ fun HomeScreen(
                             contentDescription = stringResource(R.string.library_title)
                         )
                     }
+                    IconButton(onClick = onNavigateToSettings) {
+                        Icon(
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = stringResource(R.string.settings_title)
+                        )
+                    }
                 }
             )
         },
@@ -65,6 +87,24 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // 当前配置显示
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                )
+            ) {
+                Text(
+                    text = stringResource(R.string.current_config, displayEndpoint, displayModel),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    textAlign = TextAlign.Center
+                )
+            }
+
             Text(
                 text = "创建新小说",
                 style = MaterialTheme.typography.headlineMedium,

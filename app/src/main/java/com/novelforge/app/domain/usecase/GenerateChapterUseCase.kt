@@ -1,5 +1,6 @@
 package com.novelforge.app.domain.usecase
 
+import com.novelforge.app.data.api.ApiClient
 import com.novelforge.app.data.api.GrokRequest
 import com.novelforge.app.data.api.Message
 import com.novelforge.app.data.api.StreamingApiClient
@@ -53,7 +54,11 @@ class GenerateChapterUseCase(
                 )
             )
             
+            // 从设置中获取当前模型
+            val currentModel = ApiClient.getModel()
+            
             val request = GrokRequest(
+                model = currentModel,
                 messages = listOf(
                     Message(role = "system", content = systemPrompt),
                     Message(role = "user", content = userPrompt)
@@ -98,7 +103,11 @@ class GenerateChapterUseCase(
                 title = title
             )
             
+            // 从设置中获取当前模型
+            val currentModel = ApiClient.getModel()
+            
             val request = GrokRequest(
+                model = currentModel,
                 messages = listOf(
                     Message(role = "system", content = systemPrompt),
                     Message(role = "user", content = userPrompt)
@@ -112,10 +121,7 @@ class GenerateChapterUseCase(
                 val result = streamingApiClient.generate(request)
                 result.fold(
                     onSuccess = { content ->
-                        val updatedChapter = chapter.copy(
-                            content = chapter.content + "\n\n" + content,
-                            updatedAt = System.currentTimeMillis()
-                        )
+                        val updatedChapter = chapter.copy(content = content)
                         repository.updateChapter(updatedChapter)
                         emit(GenerationState.Success(updatedChapter))
                     },

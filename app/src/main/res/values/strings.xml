@@ -22,4 +22,23 @@
     <string name="confirm_delete">确认删除？</string>
     <string name="cancel">取消</string>
     <string name="confirm">确认</string>
+    <string name="settings_title">设置</string>
+    <string name="back">返回</string>
+    <string name="api_key_section">API Key</string>
+    <string name="api_key_label">API Key</string>
+    <string name="show_password">显示密码</string>
+    <string name="hide_password">隐藏密码</string>
+    <string name="endpoint_section">API 端点</string>
+    <string name="model_section">模型选择</string>
+    <string name="model_label">选择模型</string>
+    <string name="custom_model">自定义模型</string>
+    <string name="custom_model_name">自定义模型名称</string>
+    <string name="select_model">请选择模型</string>
+    <string name="custom_endpoint_url">自定义端点 URL</string>
+    <string name="connection_test_section">连接测试</string>
+    <string name="test_connection">测试连接</string>
+    <string name="testing">测试中…</string>
+    <string name="connection_success">连接成功！</string>
+    <string name="save_settings">保存设置</string>
+    <string name="current_config">当前配置: %1$s | %2$s</string>
 </resources>

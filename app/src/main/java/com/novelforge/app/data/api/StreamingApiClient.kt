@@ -35,6 +35,21 @@ class StreamingApiClient {
         .build()
     
     private val apiService: GrokApiService = retrofit.create(GrokApiService::class.java)
+
+    private fun createRequest(
+        messages: List<Message>,
+        stream: Boolean = false,
+        temperature: Double = 0.8,
+        maxTokens: Int = 4096
+    ): GrokRequest {
+        return GrokRequest(
+            model = ApiClient.getModel(),
+            messages = messages,
+            stream = stream,
+            temperature = temperature,
+            maxTokens = maxTokens
+        )
+    }
     
     suspend fun generate(request: GrokRequest): Result<String> = withContext(Dispatchers.IO) {
         try {

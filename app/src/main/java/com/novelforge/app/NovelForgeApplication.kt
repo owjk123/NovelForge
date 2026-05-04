@@ -1,6 +1,7 @@
 package com.novelforge.app
 
 import android.app.Application
+import com.novelforge.app.data.api.ApiClient
 import com.novelforge.app.data.db.AppDatabase
 
 class NovelForgeApplication : Application() {
@@ -12,6 +13,8 @@ class NovelForgeApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         instance = this
+        // 初始化 ApiClient
+        ApiClient.initialize(this)
     }
     
     companion object {

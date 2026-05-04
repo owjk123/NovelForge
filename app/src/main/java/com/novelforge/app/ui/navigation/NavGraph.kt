@@ -8,6 +8,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.novelforge.app.ui.home.HomeScreen
 import com.novelforge.app.ui.library.LibraryScreen
+import com.novelforge.app.ui.settings.SettingsScreen
 import com.novelforge.app.ui.writing.WritingScreen
 
 sealed class Screen(val route: String) {
@@ -16,6 +17,7 @@ sealed class Screen(val route: String) {
     object Writing : Screen("writing/{novelId}") {
         fun createRoute(novelId: Long) = "writing/$novelId"
     }
+    object Settings : Screen("settings")
 }
 
 @Composable
@@ -31,6 +33,9 @@ fun NavGraph(navController: NavHostController) {
                 },
                 onNavigateToWriting = { novelId ->
                     navController.navigate(Screen.Writing.createRoute(novelId))
+                },
+                onNavigateToSettings = {
+                    navController.navigate(Screen.Settings.route)
                 }
             )
         }
@@ -55,6 +60,14 @@ fun NavGraph(navController: NavHostController) {
             val novelId = backStackEntry.arguments?.getLong("novelId") ?: 0L
             WritingScreen(
                 novelId = novelId,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        composable(Screen.Settings.route) {
+            SettingsScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }
