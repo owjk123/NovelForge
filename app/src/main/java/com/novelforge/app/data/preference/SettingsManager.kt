@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.novelforge.app.BuildConfig
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -51,8 +52,15 @@ class SettingsManager(private val context: Context) {
         const val DEFAULT_ENDPOINT = ENDPOINT_APIYI
     }
 
+    // Use BuildConfig values as fallback defaults
+    private val defaultApiKey: String
+        get() = BuildConfig.API_KEY.ifBlank { "" }
+    
+    private val defaultBaseUrl: String
+        get() = BuildConfig.API_BASE_URL.ifBlank { ENDPOINT_URLS[DEFAULT_ENDPOINT] ?: "" }
+
     val apiKey: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[API_KEY] ?: ""
+        preferences[API_KEY] ?: defaultApiKey
     }
 
     val selectedEndpoint: Flow<String> = context.dataStore.data.map { preferences ->
@@ -60,7 +68,7 @@ class SettingsManager(private val context: Context) {
     }
 
     val apiBaseUrl: Flow<String> = context.dataStore.data.map { preferences ->
-        preferences[API_BASE_URL] ?: ENDPOINT_URLS[DEFAULT_ENDPOINT] ?: ""
+        preferences[API_BASE_URL] ?: defaultBaseUrl
     }
 
     val modelName: Flow<String> = context.dataStore.data.map { preferences ->
@@ -84,7 +92,11 @@ class SettingsManager(private val context: Context) {
     suspend fun saveSelectedEndpoint(endpoint: String) {
         context.dataStore.edit { preferences ->
             preferences[SELECTED_ENDPOINT] = endpoint
-            val url = ENDPOINT_URLS[endpoint] ?: ""
+            val url = if (endpoint == ENDPOINT_CUSTOM) {
+                preferences[CUSTOM_ENDPOINT_URL] ?: ""
+            } else {
+                ENDPOINT_URLS[endpoint] ?: ""
+            }
             preferences[API_BASE_URL] = url
         }
     }
@@ -129,36 +141,32 @@ class SettingsManager(private val context: Context) {
         }
     }
 
-    // 同步获取当前使用的模型名
     fun getCurrentModelSync(): String {
         return runBlocking {
             val modelName = modelName.first()
             if (modelName == "custom") {
-                customModelName.first()
+                customModelName.first().ifBlank { DEFAULT_MODEL }
             } else {
                 modelName
             }
         }
     }
 
-    // 同步获取当前使用的端点URL
     fun getCurrentEndpointUrlSync(): String {
         return runBlocking {
             val endpoint = selectedEndpoint.first()
             if (endpoint == ENDPOINT_CUSTOM) {
-                customEndpointUrl.first()
+                customEndpointUrl.first().ifBlank { defaultBaseUrl }
             } else {
-                ENDPOINT_URLS[endpoint] ?: ""
+                ENDPOINT_URLS[endpoint] ?: defaultBaseUrl
             }
         }
     }
 
-    // 同步获取 API Key
     fun getApiKeySync(): String {
         return runBlocking { apiKey.first() }
     }
 
-    // 获取端点显示名称
     fun getEndpointDisplayName(endpoint: String): String {
         return when (endpoint) {
             ENDPOINT_APIYI -> "API易 (api.apiyi.com)"

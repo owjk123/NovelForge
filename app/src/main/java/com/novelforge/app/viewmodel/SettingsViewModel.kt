@@ -3,6 +3,7 @@ package com.novelforge.app.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.novelforge.app.data.api.ApiClient
 import com.novelforge.app.data.api.GrokRequest
 import com.novelforge.app.data.api.Message
 import com.novelforge.app.data.preference.SettingsManager
@@ -201,6 +202,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 customEndpointUrl = state.customEndpointUrl,
                 customModelName = state.customModelName
             )
+            // Refresh ApiClient so it picks up the new settings
+            ApiClient.refreshClient()
+            
             _uiState.value = _uiState.value.copy(
                 isSaving = false,
                 saveSuccess = true
