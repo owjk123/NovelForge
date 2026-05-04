@@ -1,12 +1,13 @@
 package com.novelforge.app.ui.home
 
 import android.app.Application
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LibraryBooks
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.Create
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,28 +26,33 @@ import com.novelforge.app.viewmodel.HomeViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onNavigateToLibrary: () -> Unit,
     onNavigateToWriting: (Long) -> Unit,
-    onNavigateToSettings: () -> Unit,
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = LocalContext.current
     val settingsManager = remember { SettingsManager(context.applicationContext) }
-
+    
     // 收集当前配置
     val currentEndpoint by settingsManager.selectedEndpoint.collectAsState(initial = SettingsManager.DEFAULT_ENDPOINT)
     val currentModel by settingsManager.modelName.collectAsState(initial = SettingsManager.DEFAULT_MODEL)
     val customModelName by settingsManager.customModelName.collectAsState(initial = "")
-
+    
     val displayEndpoint = settingsManager.getEndpointDisplayName(currentEndpoint)
     val displayModel = if (currentModel == "custom") customModelName else currentModel
-
+    
     LaunchedEffect(uiState.errorMessage) {
         uiState.errorMessage?.let { message ->
             snackbarHostState.showSnackbar(message)
             viewModel.clearError()
+        }
+    }
+    
+    LaunchedEffect(uiState.successMessage) {
+        uiState.successMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearSuccessMessage()
         }
     }
     
@@ -60,21 +66,22 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.home_title)) },
-                actions = {
-                    IconButton(onClick = onNavigateToLibrary) {
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(
-                            imageVector = Icons.Default.LibraryBooks,
-                            contentDescription = stringResource(R.string.library_title)
+                            imageVector = Icons.Default.Create,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
                         )
+                        Text(stringResource(R.string.home_title))
                     }
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.settings_title)
-                        )
-                    }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -83,13 +90,14 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // 当前配置显示
             Card(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
                 )
@@ -104,71 +112,136 @@ fun HomeScreen(
                     textAlign = TextAlign.Center
                 )
             }
-
-            Text(
-                text = "创建新小说",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold
-            )
             
-            OutlinedTextField(
-                value = uiState.title,
-                onValueChange = viewModel::updateTitle,
-                label = { Text(stringResource(R.string.novel_title_hint)) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true
-            )
-            
-            Text(
-                text = stringResource(R.string.select_genre),
-                style = MaterialTheme.typography.titleMedium
-            )
-            
-            GenreSelector(
-                selectedGenre = uiState.selectedGenre,
-                onGenreSelected = viewModel::updateGenre
-            )
-            
-            OutlinedTextField(
-                value = uiState.characterSetting,
-                onValueChange = viewModel::updateCharacterSetting,
-                label = { Text(stringResource(R.string.character_setting_hint)) },
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(120.dp),
-                maxLines = 5
-            )
-            
-            OutlinedTextField(
-                value = uiState.worldSetting,
-                onValueChange = viewModel::updateWorldSetting,
-                label = { Text(stringResource(R.string.world_setting_hint)) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(120.dp),
-                maxLines = 5
-            )
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            Button(
-                onClick = { viewModel.createNovel(onNavigateToWriting) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                enabled = !uiState.isCreating
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                if (uiState.isCreating) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(24.dp),
-                        color = MaterialTheme.colorScheme.onPrimary
+                Text(
+                    text = "创建新小说",
+                    style = MaterialTheme.typography.headlineMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                // 故事描述区域
+                OutlinedTextField(
+                    value = uiState.storyDescription,
+                    onValueChange = viewModel::updateStoryDescription,
+                    label = { Text("故事描述（用于AI自动填充）") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(100.dp),
+                    maxLines = 4,
+                    placeholder = { Text("描述你的故事构思，如：\"一个少年在末世中觉醒异能，踏上拯救世界的旅途\"") }
+                )
+                
+                // AI自动填充按钮
+                Button(
+                    onClick = viewModel::autoFillWithAI,
+                    modifier = Modifier.fillMaxWidth(),
+                    enabled = !uiState.isAutoFilling && uiState.storyDescription.isNotBlank(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.tertiary
                     )
-                } else {
-                    Text(
-                        text = stringResource(R.string.start_writing),
-                        style = MaterialTheme.typography.titleMedium
-                    )
+                ) {
+                    if (uiState.isAutoFilling) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(20.dp),
+                            color = MaterialTheme.colorScheme.onTertiary,
+                            strokeWidth = 2.dp
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("AI填充中...")
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("AI智能填充")
+                    }
                 }
+                
+                HorizontalDivider()
+                
+                Text(
+                    text = "小说基本信息",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                
+                OutlinedTextField(
+                    value = uiState.title,
+                    onValueChange = viewModel::updateTitle,
+                    label = { Text(stringResource(R.string.novel_title_hint)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true
+                )
+                
+                Text(
+                    text = stringResource(R.string.select_genre),
+                    style = MaterialTheme.typography.titleSmall
+                )
+                
+                GenreSelector(
+                    selectedGenre = uiState.selectedGenre,
+                    customGenreName = uiState.customGenreName,
+                    onGenreSelected = viewModel::updateGenre,
+                    onCustomGenreNameChange = viewModel::updateCustomGenreName
+                )
+                
+                OutlinedTextField(
+                    value = uiState.characterSetting,
+                    onValueChange = viewModel::updateCharacterSetting,
+                    label = { Text(stringResource(R.string.character_setting_hint)) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    maxLines = 5
+                )
+                
+                OutlinedTextField(
+                    value = uiState.worldSetting,
+                    onValueChange = viewModel::updateWorldSetting,
+                    label = { Text(stringResource(R.string.world_setting_hint)) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    maxLines = 5
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Button(
+                    onClick = { viewModel.createNovel(onNavigateToWriting) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    enabled = !uiState.isCreating
+                ) {
+                    if (uiState.isCreating) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Default.Create,
+                            contentDescription = null,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(R.string.start_writing),
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
             }
         }
     }
@@ -178,8 +251,12 @@ fun HomeScreen(
 @OptIn(ExperimentalMaterial3Api::class)
 fun GenreSelector(
     selectedGenre: NovelGenre,
-    onGenreSelected: (NovelGenre) -> Unit
+    customGenreName: String,
+    onGenreSelected: (NovelGenre) -> Unit,
+    onCustomGenreNameChange: (String) -> Unit
 ) {
+    var showCustomInput by remember { mutableStateOf(selectedGenre == NovelGenre.CUSTOM) }
+    
     Column(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -191,18 +268,30 @@ fun GenreSelector(
                 rowGenres.forEach { genre ->
                     FilterChip(
                         selected = selectedGenre == genre,
-                        onClick = { onGenreSelected(genre) },
+                        onClick = {
+                            onGenreSelected(genre)
+                            showCustomInput = (genre == NovelGenre.CUSTOM)
+                        },
                         label = { Text(genre.displayName) },
                         modifier = Modifier.weight(1f)
                     )
                 }
                 if (rowGenres.size < 3) {
                     Spacer(modifier = Modifier.weight(1f))
-                    if (rowGenres.size < 2) {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
                 }
             }
+        }
+        
+        // 自定义类型输入框
+        AnimatedVisibility(visible = showCustomInput) {
+            OutlinedTextField(
+                value = customGenreName,
+                onValueChange = onCustomGenreNameChange,
+                label = { Text("自定义类型名称") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                placeholder = { Text("例如：修仙、穿越、末日生存等") }
+            )
         }
     }
 }

@@ -1,13 +1,11 @@
 package com.novelforge.app.ui.writing
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Save
-import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -17,7 +15,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novelforge.app.R
+import com.novelforge.app.domain.prompt.EmotionalTone
 import com.novelforge.app.viewmodel.WritingViewModel
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -28,9 +28,21 @@ fun WritingScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val scrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
     
     LaunchedEffect(novelId) {
         viewModel.loadNovel(novelId)
+    }
+    
+    // 监听生成成功，自动滚动到顶部
+    LaunchedEffect(uiState.currentChapter) {
+        if (uiState.currentChapter != null && !uiState.isGenerating) {
+            // 新章节生成完成后，滚动到顶部
+            scope.launch {
+                scrollState.animateScrollTo(0)
+            }
+        }
     }
     
     LaunchedEffect(uiState.errorMessage) {
@@ -45,6 +57,18 @@ fun WritingScreen(
             snackbarHostState.showSnackbar(message)
             viewModel.clearMessages()
         }
+    }
+    
+    // 章节规划对话框
+    if (uiState.showGuidanceDialog) {
+        ChapterGuidanceDialog(
+            guidance = uiState.chapterGuidance,
+            onPlotDirectionChange = viewModel::updateGuidancePlotDirection,
+            onKeyEventsChange = viewModel::updateGuidanceKeyEvents,
+            onEmotionalToneChange = viewModel::updateGuidanceEmotionalTone,
+            onConfirm = viewModel::generateNewChapter,
+            onDismiss = viewModel::dismissGuidanceDialog
+        )
     }
     
     Scaffold(
@@ -72,7 +96,22 @@ fun WritingScreen(
                             contentDescription = "返回"
                         )
                     }
-                }
+                },
+                actions = {
+                    // 导出按钮
+                    if (uiState.chapters.isNotEmpty()) {
+                        IconButton(onClick = viewModel::exportToDownloads) {
+                            Icon(
+                                imageVector = Icons.Default.FileDownload,
+                                contentDescription = stringResource(R.string.export_novel),
+                                tint = MaterialTheme.colorScheme.primary
+                            )
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -81,7 +120,7 @@ fun WritingScreen(
                 isGenerating = uiState.isGenerating,
                 hasContent = uiState.displayContent.isNotBlank(),
                 hasCurrentChapter = uiState.currentChapter != null,
-                onGenerateNewChapter = viewModel::generateNewChapter,
+                onGenerateNewChapter = viewModel::showGuidanceDialog,
                 onContinueWriting = viewModel::continueWriting,
                 onSaveDraft = viewModel::saveDraft
             )
@@ -102,6 +141,7 @@ fun WritingScreen(
             } else {
                 ChapterContent(
                     content = uiState.displayContent,
+                    scrollState = scrollState,
                     modifier = Modifier.weight(1f)
                 )
                 
@@ -129,7 +169,7 @@ fun NewChapterInput(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
-            imageVector = Icons.Default.PlayArrow,
+            imageVector = Icons.Default.AutoStories,
             contentDescription = null,
             modifier = Modifier.size(64.dp),
             tint = MaterialTheme.colorScheme.primary
@@ -169,10 +209,11 @@ fun NewChapterInput(
 @Composable
 fun ChapterContent(
     content: String,
+    scrollState: androidx.compose.foundation.ScrollState,
     modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState())
+        modifier = modifier.verticalScroll(scrollState)
     ) {
         Text(
             text = content,
@@ -180,6 +221,116 @@ fun ChapterContent(
             lineHeight = MaterialTheme.typography.bodyLarge.lineHeight * 1.5f
         )
     }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ChapterGuidanceDialog(
+    guidance: com.novelforge.app.domain.prompt.ChapterGuidance,
+    onPlotDirectionChange: (String) -> Unit,
+    onKeyEventsChange: (String) -> Unit,
+    onEmotionalToneChange: (EmotionalTone) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var expandedTone by remember { mutableStateOf(false) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lightbulb,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                Text("章节规划", fontWeight = FontWeight.Bold)
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text(
+                    text = "为新章节提供引导，帮助AI生成更符合你期望的内容",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                OutlinedTextField(
+                    value = guidance.plotDirection,
+                    onValueChange = onPlotDirectionChange,
+                    label = { Text("本章剧情方向 *") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 3,
+                    placeholder = { Text("描述本章的主要剧情发展方向，如：主角与反派对峙并揭露真相") }
+                )
+                
+                OutlinedTextField(
+                    value = guidance.keyEvents,
+                    onValueChange = onKeyEventsChange,
+                    label = { Text("关键事件/转折（可选）") },
+                    modifier = Modifier.fillMaxWidth(),
+                    maxLines = 2,
+                    placeholder = { Text("描述本章的关键事件或转折点") }
+                )
+                
+                // 情感基调选择
+                ExposedDropdownMenuBox(
+                    expanded = expandedTone,
+                    onExpandedChange = { expandedTone = it }
+                ) {
+                    OutlinedTextField(
+                        value = guidance.emotionalTone.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("情感基调（可选）") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedTone) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = expandedTone,
+                        onDismissRequest = { expandedTone = false }
+                    ) {
+                        EmotionalTone.entries.forEach { tone ->
+                            DropdownMenuItem(
+                                text = { Text(tone.displayName) },
+                                onClick = {
+                                    onEmotionalToneChange(tone)
+                                    expandedTone = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = onConfirm,
+                enabled = guidance.plotDirection.isNotBlank()
+            ) {
+                Icon(
+                    imageVector = Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("开始创作")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
+            }
+        }
+    )
 }
 
 @Composable
@@ -192,7 +343,8 @@ fun WritingBottomBar(
     onSaveDraft: () -> Unit
 ) {
     Surface(
-        shadowElevation = 8.dp
+        shadowElevation = 8.dp,
+        color = MaterialTheme.colorScheme.surface
     ) {
         Row(
             modifier = Modifier
@@ -206,7 +358,7 @@ fun WritingBottomBar(
                 enabled = !isGenerating
             ) {
                 Icon(
-                    imageVector = Icons.Default.PlayArrow,
+                    imageVector = Icons.Default.AutoStories,
                     contentDescription = null,
                     modifier = Modifier.size(20.dp)
                 )

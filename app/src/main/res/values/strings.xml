@@ -41,4 +41,20 @@
     <string name="connection_success">连接成功！</string>
     <string name="save_settings">保存设置</string>
     <string name="current_config">当前配置: %1$s | %2$s</string>
+    <!-- 新增字符串 -->
+    <string name="story_description_hint">故事描述（用于AI自动填充）</string>
+    <string name="ai_auto_fill">AI智能填充</string>
+    <string name="ai_filling">AI填充中...</string>
+    <string name="ai_fill_success">AI自动填充成功！</string>
+    <string name="chapter_planning">章节规划</string>
+    <string name="plot_direction_hint">本章剧情方向</string>
+    <string name="key_events_hint">关键事件/转折（可选）</string>
+    <string name="emotional_tone_hint">情感基调</string>
+    <string name="export_to_downloads">导出到 Downloads</string>
+    <string name="export_success">已导出到 Downloads/%1$s</string>
+    <string name="export_failed">导出失败，请检查存储权限</string>
+    <string name="custom_genre_name_hint">自定义类型名称</string>
+    <string name="navigation_home">创作</string>
+    <string name="navigation_library">书架</string>
+    <string name="navigation_settings">设置</string>
 </resources>

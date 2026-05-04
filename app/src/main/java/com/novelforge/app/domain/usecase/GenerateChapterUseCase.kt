@@ -6,12 +6,12 @@ import com.novelforge.app.data.api.Message
 import com.novelforge.app.data.api.StreamingApiClient
 import com.novelforge.app.data.model.Chapter
 import com.novelforge.app.data.repository.NovelRepository
+import com.novelforge.app.domain.prompt.ChapterGuidance
 import com.novelforge.app.domain.prompt.NovelGenre
 import com.novelforge.app.domain.prompt.NovelPromptBuilder
 import com.novelforge.app.domain.prompt.NovelPromptParams
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
 
 sealed class GenerationState {
     data class Generating(val partialContent: String) : GenerationState()
@@ -32,7 +32,8 @@ class GenerateChapterUseCase(
         worldSetting: String,
         chapterSummary: String = "",
         chapterTitle: String = "",
-        targetWordCount: Int = 2000
+        targetWordCount: Int = 2000,
+        chapterGuidance: ChapterGuidance? = null
     ): Flow<GenerationState> {
         return try {
             val previousChapters = repository.getChaptersByNovelIdSync(novelId)
@@ -50,7 +51,8 @@ class GenerateChapterUseCase(
                     previousContent = previousContent,
                     targetWordCount = targetWordCount,
                     isNewChapter = true,
-                    chapterTitle = "${chapterOrder}章"
+                    chapterTitle = "${chapterOrder}章",
+                    chapterGuidance = chapterGuidance
                 )
             )
             

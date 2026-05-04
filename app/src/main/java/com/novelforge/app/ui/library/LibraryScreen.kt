@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,7 +25,6 @@ import java.util.*
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LibraryScreen(
-    onNavigateBack: () -> Unit,
     onNavigateToWriting: (Long) -> Unit,
     viewModel: LibraryViewModel = viewModel()
 ) {
@@ -41,6 +38,14 @@ fun LibraryScreen(
         }
     }
     
+    LaunchedEffect(uiState.successMessage) {
+        uiState.successMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            viewModel.clearSuccessMessage()
+        }
+    }
+    
+    // 删除确认对话框
     if (uiState.novelToDelete != null) {
         AlertDialog(
             onDismissRequest = viewModel::dismissDeleteConfirmation,
@@ -48,7 +53,10 @@ fun LibraryScreen(
             text = { Text("确定要删除《${uiState.novelToDelete?.title}》吗？此操作不可恢复。") },
             confirmButton = {
                 TextButton(
-                    onClick = { viewModel.deleteNovel(uiState.novelToDelete!!) }
+                    onClick = { viewModel.deleteNovel(uiState.novelToDelete!!) },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error
+                    )
                 ) {
                     Text(stringResource(R.string.confirm))
                 }
@@ -61,18 +69,61 @@ fun LibraryScreen(
         )
     }
     
+    // 导出确认对话框
+    if (uiState.novelToExport != null) {
+        AlertDialog(
+            onDismissRequest = viewModel::dismissExportConfirmation,
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.FileDownload,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("导出小说") },
+            text = { 
+                Text("确定要导出《${uiState.novelToExport?.title}》到 Downloads 目录吗？") 
+            },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.exportNovel(uiState.novelToExport!!) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.FileDownload,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("导出")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = viewModel::dismissExportConfirmation) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.library_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            imageVector = Icons.Default.LibraryBooks,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
                         )
+                        Text(stringResource(R.string.library_title))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -98,7 +149,7 @@ fun LibraryScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Default.MenuBook,
+                        imageVector = Icons.Default.LibraryBooks,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant
@@ -122,7 +173,8 @@ fun LibraryScreen(
                     NovelCard(
                         novel = novel,
                         onClick = { onNavigateToWriting(novel.id) },
-                        onDelete = { viewModel.showDeleteConfirmation(novel) }
+                        onDelete = { viewModel.showDeleteConfirmation(novel) },
+                        onExport = { viewModel.showExportConfirmation(novel) }
                     )
                 }
             }
@@ -134,20 +186,30 @@ fun LibraryScreen(
 fun NovelCard(
     novel: Novel,
     onClick: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onExport: () -> Unit
 ) {
     val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
-    val genre = try {
-        NovelGenre.valueOf(novel.genre)
-    } catch (e: Exception) {
-        NovelGenre.FANTASY
+    
+    // 解析类型
+    val genreDisplay = if (novel.genre.startsWith("CUSTOM:")) {
+        novel.genre.substringAfter("CUSTOM:")
+    } else {
+        try {
+            NovelGenre.valueOf(novel.genre).displayName
+        } catch (e: Exception) {
+            novel.genre
+        }
     }
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
     ) {
         Column(
             modifier = Modifier.padding(16.dp)
@@ -168,19 +230,12 @@ fun NovelCard(
                 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     SuggestionChip(
                         onClick = { },
-                        label = { Text(genre.displayName) }
+                        label = { Text(genreDisplay, style = MaterialTheme.typography.labelSmall) }
                     )
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.delete_novel),
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
                 }
             }
             
@@ -196,11 +251,45 @@ fun NovelCard(
             
             Spacer(modifier = Modifier.height(8.dp))
             
-            Text(
-                text = "创建于 ${dateFormat.format(Date(novel.createdAt))}",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.outline
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "创建于 ${dateFormat.format(Date(novel.createdAt))}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // 导出按钮
+                    FilledTonalIconButton(
+                        onClick = onExport,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.FileDownload,
+                            contentDescription = stringResource(R.string.export_novel),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                    // 删除按钮
+                    IconButton(
+                        onClick = onDelete,
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.delete_novel),
+                            tint = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
         }
     }
 }

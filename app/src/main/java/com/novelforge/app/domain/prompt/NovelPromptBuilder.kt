@@ -1,11 +1,14 @@
 package com.novelforge.app.domain.prompt
 
+import com.novelforge.app.data.model.Chapter
+
 enum class NovelGenre(val displayName: String, val systemPrompt: String) {
     FANTASY("玄幻", "仙侠修真"),
     SCIFI("科幻", "未来科技"),
     URBAN("都市", "现代都市"),
     HAREM("后宫", "都市情感"),
-    MYSTERY("悬疑", "推理探案")
+    MYSTERY("悬疑", "推理探案"),
+    CUSTOM("自定义", "用户自定义类型")
 }
 
 data class NovelPromptParams(
@@ -17,8 +20,25 @@ data class NovelPromptParams(
     val previousContent: String = "",
     val targetWordCount: Int = 2000,
     val isNewChapter: Boolean = true,
-    val chapterTitle: String = ""
+    val chapterTitle: String = "",
+    val chapterGuidance: ChapterGuidance? = null
 )
+
+// 章节引导数据类
+data class ChapterGuidance(
+    val plotDirection: String = "",       // 本章剧情方向（必填）
+    val keyEvents: String = "",           // 关键事件/转折（可选）
+    val emotionalTone: EmotionalTone = EmotionalTone.NEUTRAL  // 情感基调
+)
+
+enum class EmotionalTone(val displayName: String) {
+    NEUTRAL("中性"),
+    TENSE("紧张"),
+    WARM("温馨"),
+    SAD("悲伤"),
+    COMEDIC("搞笑"),
+    PASSIONATE("热血")
+}
 
 object NovelPromptBuilder {
     
@@ -54,6 +74,25 @@ object NovelPromptBuilder {
                     appendLine()
                 }
                 
+                // 添加章节引导信息
+                params.chapterGuidance?.let { guidance ->
+                    if (guidance.plotDirection.isNotBlank()) {
+                        appendLine("【本章剧情方向】")
+                        appendLine(guidance.plotDirection)
+                        appendLine()
+                    }
+                    if (guidance.keyEvents.isNotBlank()) {
+                        appendLine("【关键事件/转折】")
+                        appendLine(guidance.keyEvents)
+                        appendLine()
+                    }
+                    if (guidance.emotionalTone != EmotionalTone.NEUTRAL) {
+                        appendLine("【情感基调】")
+                        appendLine(guidance.emotionalTone.displayName)
+                        appendLine()
+                    }
+                }
+                
                 if (params.previousContent.isNotBlank()) {
                     appendLine("【前情提要】")
                     appendLine(params.previousContent.takeLast(500))
@@ -85,4 +124,65 @@ object NovelPromptBuilder {
             appendLine(previousContent)
         }
     }
+    
+    // 构建AI自动填充的prompt
+    fun buildAutoFillPrompt(storyDescription: String): String {
+        return buildString {
+            appendLine("请根据以下小说故事描述，自动生成适合的小说设定。")
+            appendLine()
+            appendLine("【故事描述】")
+            appendLine(storyDescription)
+            appendLine()
+            appendLine("请按以下JSON格式返回（只返回JSON，不要其他内容）：")
+            appendLine("""
+{
+    "genre": "推荐的小说类型（玄幻/科幻/都市/后宫/悬疑）",
+    "characterSetting": "主角设定，包括姓名、性格特点、背景故事等，100-200字",
+    "worldSetting": "世界观设定，包括故事发生的背景、规则、特色设定等，100-200字"
 }
+            """.trimIndent())
+        }
+    }
+    
+    // 解析AI自动填充的响应
+    fun parseAutoFillResponse(response: String): AutoFillResult? {
+        return try {
+            // 尝试提取JSON部分
+            val jsonStr = response
+                .replace("```json", "")
+                .replace("```", "")
+                .trim()
+            
+            val genreMatch = Regex("\"genre\"\\s*:\\s*\"([^\"]+)\"").find(jsonStr)
+            val characterMatch = Regex("\"characterSetting\"\\s*:\\s*\"([^\"]+)\"").find(jsonStr)
+            val worldMatch = Regex("\"worldSetting\"\\s*:\\s*\"([^\"]+)\"").find(jsonStr)
+            
+            if (genreMatch != null && characterMatch != null && worldMatch != null) {
+                val genreStr = genreMatch.groupValues[1]
+                val genre = try {
+                    NovelGenre.valueOf(genreStr.uppercase())
+                } catch (e: Exception) {
+                    NovelGenre.CUSTOM
+                }
+                
+                AutoFillResult(
+                    genre = genre,
+                    genreDisplayName = genreStr,
+                    characterSetting = characterMatch.groupValues[1],
+                    worldSetting = worldMatch.groupValues[1]
+                )
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+}
+
+data class AutoFillResult(
+    val genre: NovelGenre,
+    val genreDisplayName: String,
+    val characterSetting: String,
+    val worldSetting: String
+)

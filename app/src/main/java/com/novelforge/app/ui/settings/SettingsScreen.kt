@@ -1,12 +1,10 @@
 package com.novelforge.app.ui.settings
 
-import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -27,7 +25,6 @@ import com.novelforge.app.viewmodel.TestResult
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    onNavigateBack: () -> Unit,
     viewModel: SettingsViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -52,15 +49,22 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
+                title = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
                         Icon(
-                            imageVector = Icons.Filled.ArrowBack,
-                            contentDescription = stringResource(R.string.back)
+                            imageVector = Icons.Default.Settings,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
                         )
+                        Text(stringResource(R.string.settings_title))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -108,7 +112,7 @@ fun SettingsScreen(
                 }
             )
 
-            Divider()
+            HorizontalDivider()
 
             // API 端点选择
             Text(
@@ -157,7 +161,7 @@ fun SettingsScreen(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             // 模型选择
             Text(
@@ -221,7 +225,7 @@ fun SettingsScreen(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             // 连接测试
             Text(
