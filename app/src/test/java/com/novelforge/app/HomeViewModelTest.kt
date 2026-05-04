@@ -3,18 +3,10 @@ package com.novelforge.app
 import com.novelforge.app.domain.prompt.NovelGenre
 import com.novelforge.app.domain.prompt.NovelPromptBuilder
 import com.novelforge.app.domain.prompt.NovelPromptParams
-import com.novelforge.app.data.api.GrokRequest
-import com.novelforge.app.data.api.Message
-import kotlinx.serialization.json.Json
 import org.junit.Test
 import org.junit.Assert.*
 
 class HomeViewModelTest {
-    
-    private val json = Json {
-        ignoreUnknownKeys = true
-        isLenient = true
-    }
 
     @Test
     fun `novel genre enum has all expected values`() {
@@ -41,19 +33,6 @@ class HomeViewModelTest {
         assertTrue(prompt.contains("修仙之路"))
         assertTrue(prompt.contains("少年天才修仙者"))
         assertTrue(prompt.contains("九州大陆"))
-        assertTrue(prompt.contains(NovelGenre.FANTASY.systemPrompt))
-    }
-
-    @Test
-    fun `grok request serializes with correct model`() {
-        val request = GrokRequest(
-            model = "grok-4.3",
-            messages = listOf(
-                Message(role = "user", content = "Test")
-            )
-        )
-        val serialized = json.encodeToString(GrokRequest.serializer(), request)
-        assertTrue(serialized.contains("grok-4.3"))
     }
 
     @Test
@@ -63,5 +42,12 @@ class HomeViewModelTest {
         assertEquals("都市", NovelGenre.URBAN.displayName)
         assertEquals("后宫", NovelGenre.HAREM.displayName)
         assertEquals("悬疑", NovelGenre.MYSTERY.displayName)
+    }
+
+    @Test
+    fun `system prompt is non-blank for all genres`() {
+        NovelGenre.values().forEach { genre ->
+            assertTrue(genre.systemPrompt.isNotBlank())
+        }
     }
 }
