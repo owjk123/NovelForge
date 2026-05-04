@@ -1,0 +1,33 @@
+# Miscellaneous
+*.class
+*.log
+*.lock
+*.bak
+*.swp
+*.orig
+*~
+.DS_Store
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Android Studio / IntelliJ IDEA
+.idea/
+*.iml
+local.properties
+
+# Keystore files
+*.jks
+*.keystore
+
+# APK files
+*.apk
+*.aab
+!app/build/outputs/apk/release/*.apk
+
+# Google Services (local configuration)
+google-services.json
