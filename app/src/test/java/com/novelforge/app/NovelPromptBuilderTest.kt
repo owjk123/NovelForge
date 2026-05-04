@@ -3,6 +3,8 @@ package com.novelforge.app
 import com.novelforge.app.domain.prompt.NovelGenre
 import com.novelforge.app.domain.prompt.NovelPromptBuilder
 import com.novelforge.app.domain.prompt.NovelPromptParams
+import com.novelforge.app.domain.prompt.ChapterGuidance
+import com.novelforge.app.domain.prompt.EmotionalTone
 import org.junit.Test
 import org.junit.Assert.*
 
@@ -66,7 +68,7 @@ class NovelPromptBuilderTest {
     
     @Test
     fun `all genres have valid display names and system prompts`() {
-        NovelGenre.values().forEach { genre ->
+        NovelGenre.entries.forEach { genre ->
             assertTrue(
                 "Genre ${genre.name} should have non-blank displayName",
                 genre.displayName.isNotBlank()
@@ -76,5 +78,40 @@ class NovelPromptBuilderTest {
                 genre.systemPrompt.isNotBlank()
             )
         }
+    }
+
+    @Test
+    fun `chapter guidance is included in user prompt`() {
+        val params = NovelPromptParams(
+            genre = NovelGenre.FANTASY,
+            title = "Test Novel",
+            characterSetting = "Hero",
+            worldSetting = "Fantasy world",
+            isNewChapter = true,
+            chapterTitle = "Chapter 1",
+            chapterGuidance = ChapterGuidance(
+                plotDirection = "Hero defeats the villain",
+                keyEvents = "Battle scene",
+                emotionalTone = EmotionalTone.PASSIONATE
+            )
+        )
+
+        val userPrompt = NovelPromptBuilder.buildUserPrompt(params)
+
+        assertTrue(userPrompt.contains("Hero defeats the villain"))
+        assertTrue(userPrompt.contains("Battle scene"))
+        assertTrue(userPrompt.contains("热血"))
+    }
+
+    @Test
+    fun `auto fill prompt format is correct`() {
+        val description = "A story about dragons"
+        val prompt = NovelPromptBuilder.buildAutoFillPrompt(description)
+
+        assertTrue(prompt.contains("小说故事描述"))
+        assertTrue(prompt.contains(description))
+        assertTrue(prompt.contains("genre"))
+        assertTrue(prompt.contains("characterSetting"))
+        assertTrue(prompt.contains("worldSetting"))
     }
 }
