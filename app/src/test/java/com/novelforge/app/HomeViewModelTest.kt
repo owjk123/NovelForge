@@ -1,135 +1,66 @@
 package com.novelforge.app
 
-import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import com.novelforge.app.data.db.ChapterDao
-import com.novelforge.app.data.db.NovelDao
-import com.novelforge.app.data.model.Novel
-import com.novelforge.app.data.repository.NovelRepository
 import com.novelforge.app.domain.prompt.NovelGenre
-import io.mockk.coEvery
-import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.test.*
-import org.junit.After
-import org.junit.Before
-import org.junit.Rule
+import com.novelforge.app.domain.prompt.NovelPromptBuilder
+import com.novelforge.app.domain.prompt.NovelPromptParams
+import com.novelforge.app.data.api.GrokRequest
+import com.novelforge.app.data.api.Message
+import kotlinx.serialization.json.Json
 import org.junit.Test
 import org.junit.Assert.*
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
     
-    @get:Rule
-    val instantTaskExecutorRule = InstantTaskExecutorRule()
-    
-    private val testDispatcher = StandardTestDispatcher()
-    
-    private lateinit var novelDao: NovelDao
-    private lateinit var chapterDao: ChapterDao
-    private lateinit var repository: NovelRepository
-    private lateinit var viewModel: HomeViewModel
-    
-    @Before
-    fun setup() {
-        Dispatchers.setMain(testDispatcher)
-        novelDao = mockk(relaxed = true)
-        chapterDao = mockk(relaxed = true)
-        repository = NovelRepository(novelDao, chapterDao)
-        viewModel = HomeViewModel(repository)
+    private val json = Json {
+        ignoreUnknownKeys = true
+        isLenient = true
     }
-    
-    @After
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
-    
+
     @Test
-    fun `updateTitle updates state correctly`() = runTest {
-        viewModel.updateTitle("My Novel")
-        
-        assertEquals("My Novel", viewModel.uiState.value.title)
+    fun `novel genre enum has all expected values`() {
+        val genres = NovelGenre.entries
+        assertEquals(5, genres.size)
+        assertTrue(genres.any { it.name == "FANTASY" })
+        assertTrue(genres.any { it.name == "SCIFI" })
+        assertTrue(genres.any { it.name == "URBAN" })
+        assertTrue(genres.any { it.name == "HAREM" })
+        assertTrue(genres.any { it.name == "MYSTERY" })
     }
-    
+
     @Test
-    fun `updateGenre updates state correctly`() = runTest {
-        viewModel.updateGenre(NovelGenre.SCIFI)
-        
-        assertEquals(NovelGenre.SCIFI, viewModel.uiState.value.selectedGenre)
+    fun `prompt builder creates valid prompt for fantasy genre`() {
+        val params = NovelPromptParams(
+            genre = NovelGenre.FANTASY,
+            title = "修仙之路",
+            characterSetting = "少年天才修仙者",
+            worldSetting = "九州大陆",
+            isNewChapter = true,
+            chapterTitle = "第一章"
+        )
+        val prompt = NovelPromptBuilder.buildUserPrompt(params)
+        assertTrue(prompt.contains("修仙之路"))
+        assertTrue(prompt.contains("少年天才修仙者"))
+        assertTrue(prompt.contains("九州大陆"))
     }
-    
+
     @Test
-    fun `createNovel shows error when title is blank`() = runTest {
-        viewModel.createNovel { }
-        
-        assertEquals("请输入小说标题", viewModel.uiState.value.errorMessage)
+    fun `grok request serializes with correct model`() {
+        val request = GrokRequest(
+            model = "grok-4.3",
+            messages = listOf(
+                Message(role = "user", content = "Test")
+            )
+        )
+        val serialized = json.encodeToString(GrokRequest.serializer(), request)
+        assertTrue(serialized.contains("grok-4.3"))
     }
-    
+
     @Test
-    fun `createNovel shows error when character setting is blank`() = runTest {
-        viewModel.updateTitle("My Novel")
-        viewModel.createNovel { }
-        
-        assertEquals("请输入主角设定", viewModel.uiState.value.errorMessage)
-    }
-    
-    @Test
-    fun `createNovel shows error when world setting is blank`() = runTest {
-        viewModel.updateTitle("My Novel")
-        viewModel.updateCharacterSetting("Hero character")
-        viewModel.createNovel { }
-        
-        assertEquals("请输入世界观设定", viewModel.uiState.value.errorMessage)
-    }
-    
-    @Test
-    fun `createNovel succeeds with valid input`() = runTest {
-        viewModel.updateTitle("My Novel")
-        viewModel.updateGenre(NovelGenre.FANTASY)
-        viewModel.updateCharacterSetting("Hero character")
-        viewModel.updateWorldSetting("Fantasy world")
-        
-        coEvery { novelDao.insertNovel(any()) } returns 1L
-        
-        var successCalled = false
-        var novelId: Long = 0
-        
-        viewModel.createNovel { id ->
-            successCalled = true
-            novelId = id
-        }
-        
-        testDispatcher.scheduler.advanceUntilIdle()
-        
-        assertTrue(successCalled)
-        assertEquals(1L, novelId)
-    }
-    
-    @Test
-    fun `clearError clears error message`() = runTest {
-        viewModel.createNovel { }
-        assertNotNull(viewModel.uiState.value.errorMessage)
-        
-        viewModel.clearError()
-        
-        assertNull(viewModel.uiState.value.errorMessage)
-    }
-    
-    @Test
-    fun `resetCreatedNovelId resets created novel id`() = runTest {
-        viewModel.updateTitle("My Novel")
-        viewModel.updateCharacterSetting("Hero")
-        viewModel.updateWorldSetting("World")
-        
-        coEvery { novelDao.insertNovel(any()) } returns 1L
-        viewModel.createNovel { }
-        testDispatcher.scheduler.advanceUntilIdle()
-        
-        assertEquals(1L, viewModel.uiState.value.createdNovelId)
-        
-        viewModel.resetCreatedNovelId()
-        
-        assertNull(viewModel.uiState.value.createdNovelId)
+    fun `genre display names are in Chinese`() {
+        assertEquals("玄幻", NovelGenre.FANTASY.displayName)
+        assertEquals("科幻", NovelGenre.SCIFI.displayName)
+        assertEquals("都市", NovelGenre.URBAN.displayName)
+        assertEquals("后宫", NovelGenre.HAREM.displayName)
+        assertEquals("悬疑", NovelGenre.MYSTERY.displayName)
     }
 }

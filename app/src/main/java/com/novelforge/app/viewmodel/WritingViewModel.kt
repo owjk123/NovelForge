@@ -108,21 +108,25 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
     }
     
     fun continueWriting() {
-        val lastChapter = _uiState.value.currentChapter
-            ?: viewModelScope.launch {
-                repository.getLastChapter(currentNovelId)
-            }.let { return }
-        
         val novel = _uiState.value.novel ?: return
         
         _uiState.value = _uiState.value.copy(
             isGenerating = true,
-            displayContent = lastChapter.content,
             errorMessage = null,
             successMessage = null
         )
         
         viewModelScope.launch {
+            val lastChapter = _uiState.value.currentChapter 
+                ?: repository.getLastChapter(currentNovelId)
+                ?: run {
+                    _uiState.value = _uiState.value.copy(
+                        isGenerating = false,
+                        errorMessage = "没有找到可以续写的章节"
+                    )
+                    return@launch
+                }
+            
             generateChapterUseCase.continueWriting(lastChapter, novel.title)
                 .collect { state ->
                     when (state) {

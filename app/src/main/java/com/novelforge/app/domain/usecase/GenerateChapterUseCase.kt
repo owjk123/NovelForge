@@ -3,14 +3,20 @@ package com.novelforge.app.domain.usecase
 import com.novelforge.app.data.api.GrokRequest
 import com.novelforge.app.data.api.Message
 import com.novelforge.app.data.api.StreamingApiClient
-import com.novelforge.app.data.api.StreamResult
 import com.novelforge.app.data.model.Chapter
 import com.novelforge.app.data.repository.NovelRepository
 import com.novelforge.app.domain.prompt.NovelGenre
 import com.novelforge.app.domain.prompt.NovelPromptBuilder
 import com.novelforge.app.domain.prompt.NovelPromptParams
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
+
+sealed class GenerationState {
+    data class Generating(val partialContent: String) : GenerationState()
+    data class Success(val chapter: Chapter) : GenerationState()
+    data class Error(val message: String) : GenerationState()
+}
 
 class GenerateChapterUseCase(
     private val repository: NovelRepository,
@@ -52,37 +58,32 @@ class GenerateChapterUseCase(
                     Message(role = "system", content = systemPrompt),
                     Message(role = "user", content = userPrompt)
                 ),
-                stream = true,
+                stream = false,
                 temperature = 0.8,
                 maxTokens = 4096
             )
             
-            var fullContent = ""
-            
-            repository.streamGenerate(request).map { result ->
-                when (result) {
-                    is StreamResult.OnNext -> {
-                        fullContent += result.content
-                        GenerationState.Generating(result.content)
-                    }
-                    is StreamResult.OnError -> {
-                        GenerationState.Error(result.error)
-                    }
-                    is StreamResult.OnComplete -> {
+            flow {
+                val result = streamingApiClient.generate(request)
+                result.fold(
+                    onSuccess = { content ->
                         val chapter = Chapter(
                             novelId = novelId,
                             order = chapterOrder,
                             title = chapterTitle.ifBlank { "第${chapterOrder}章" },
-                            content = fullContent,
+                            content = content,
                             summary = chapterSummary
                         )
                         repository.insertChapter(chapter)
-                        GenerationState.Success(chapter)
+                        emit(GenerationState.Success(chapter))
+                    },
+                    onFailure = { e ->
+                        emit(GenerationState.Error(e.message ?: "Unknown error"))
                     }
-                }
+                )
             }
         } catch (e: Exception) {
-            flowOf(GenerationState.Error(e.message ?: "Unknown error"))
+            flow { emit(GenerationState.Error(e.message ?: "Unknown error")) }
         }
     }
     
@@ -102,42 +103,29 @@ class GenerateChapterUseCase(
                     Message(role = "system", content = systemPrompt),
                     Message(role = "user", content = userPrompt)
                 ),
-                stream = true,
+                stream = false,
                 temperature = 0.8,
                 maxTokens = 4096
             )
             
-            var fullContent = ""
-            
-            repository.streamGenerate(request).map { result ->
-                when (result) {
-                    is StreamResult.OnNext -> {
-                        fullContent += result.content
-                        GenerationState.Generating(result.content)
-                    }
-                    is StreamResult.OnError -> {
-                        GenerationState.Error(result.error)
-                    }
-                    is StreamResult.OnComplete -> {
+            flow {
+                val result = streamingApiClient.generate(request)
+                result.fold(
+                    onSuccess = { content ->
                         val updatedChapter = chapter.copy(
-                            content = chapter.content + "\n\n" + fullContent,
+                            content = chapter.content + "\n\n" + content,
                             updatedAt = System.currentTimeMillis()
                         )
                         repository.updateChapter(updatedChapter)
-                        GenerationState.Success(updatedChapter)
+                        emit(GenerationState.Success(updatedChapter))
+                    },
+                    onFailure = { e ->
+                        emit(GenerationState.Error(e.message ?: "Unknown error"))
                     }
-                }
+                )
             }
         } catch (e: Exception) {
-            flowOf(GenerationState.Error(e.message ?: "Unknown error"))
+            flow { emit(GenerationState.Error(e.message ?: "Unknown error")) }
         }
     }
-    
-    private fun <T> flowOf(value: T) = kotlinx.coroutines.flow.flowOf(value)
-}
-
-sealed class GenerationState {
-    data class Generating(val partialContent: String) : GenerationState()
-    data class Success(val chapter: Chapter) : GenerationState()
-    data class Error(val message: String) : GenerationState()
 }

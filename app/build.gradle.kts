@@ -5,6 +5,14 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+// Read API config from local.properties
+val localProperties = java.util.Properties().apply {
+    val localFile = rootProject.file("local.properties")
+    if (localFile.exists()) {
+        load(localFile.inputStream())
+    }
+}
+
 android {
     namespace = "com.novelforge.app"
     compileSdk = 34
@@ -20,6 +28,10 @@ android {
         vectorDrawables {
             useSupportLibrary = true
         }
+
+        // Expose API config as BuildConfig fields
+        buildConfigField("String", "API_KEY", "\"${localProperties.getProperty("API_KEY", "")}\"")
+        buildConfigField("String", "API_BASE_URL", "\"${localProperties.getProperty("API_BASE_URL", "https://api.apiyi.com/v1")}\"")
     }
 
     buildTypes {
