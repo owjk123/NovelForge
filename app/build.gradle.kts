@@ -32,14 +32,21 @@ android {
             useSupportLibrary = true
         }
 
-        // Expose API config as BuildConfig fields
         buildConfigField("String", "API_KEY", "\"${localProperties.getProperty("API_KEY", "")}\"")
         buildConfigField("String", "API_BASE_URL", "\"${localProperties.getProperty("API_BASE_URL", "https://api.apiyi.com/v1")}\"")
+    }
+
+    signingConfigs {
+        getByName("debug") {
+            // Use default debug signing
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            // Use debug signing for release so APK can be installed directly
+            signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
