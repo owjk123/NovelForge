@@ -6,7 +6,7 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -56,7 +56,7 @@ fun SettingsScreen(
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = Icons.Filled.ArrowBack,
                             contentDescription = stringResource(R.string.back)
                         )
                     }
@@ -108,7 +108,7 @@ fun SettingsScreen(
                 }
             )
 
-            HorizontalDivider()
+            Divider()
 
             // API 端点选择
             Text(
@@ -157,7 +157,7 @@ fun SettingsScreen(
                 )
             }
 
-            HorizontalDivider()
+            Divider()
 
             // 模型选择
             Text(
@@ -221,7 +221,7 @@ fun SettingsScreen(
                 )
             }
 
-            HorizontalDivider()
+            Divider()
 
             // 连接测试
             Text(

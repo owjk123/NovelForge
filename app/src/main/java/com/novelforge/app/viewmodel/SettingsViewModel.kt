@@ -3,8 +3,6 @@ package com.novelforge.app.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import com.novelforge.app.data.api.GrokModels
 import com.novelforge.app.data.api.GrokRequest
 import com.novelforge.app.data.api.Message
 import com.novelforge.app.data.preference.SettingsManager
@@ -19,7 +17,6 @@ import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
-import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
@@ -147,7 +144,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                         maxTokens = 10
                     )
 
-                    val requestJson = json.encodeToString(GrokModels.GrokRequest.serializer(), requestBody)
+                    val requestJson = json.encodeToString(GrokRequest.serializer(), requestBody)
 
                     val request = Request.Builder()
                         .url("$baseUrl/chat/completions")
