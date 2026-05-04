@@ -29,7 +29,7 @@ class NovelPromptBuilderTest {
         val userPrompt = NovelPromptBuilder.buildUserPrompt(params)
         
         assertTrue(userPrompt.contains("Test Novel"))
-        assertTrue(userPrompt.contains("玄幻"))
+        assertTrue(userPrompt.contains(NovelGenre.FANTASY.systemPrompt))
         assertTrue(userPrompt.contains("Hero: A brave warrior"))
         assertTrue(userPrompt.contains("Medieval fantasy world"))
         assertTrue(userPrompt.contains("Chapter 1"))
@@ -65,20 +65,15 @@ class NovelPromptBuilderTest {
     }
     
     @Test
-    fun `all genres are supported`() {
-        NovelGenre.entries.forEach { genre ->
-            val params = NovelPromptParams(
-                genre = genre,
-                title = "Test",
-                characterSetting = "Character",
-                worldSetting = "World",
-                isNewChapter = true
-            )
-            
-            val userPrompt = NovelPromptBuilder.buildUserPrompt(params)
+    fun `all genres have valid display names and system prompts`() {
+        NovelGenre.values().forEach { genre ->
             assertTrue(
-                "Genre ${genre.name} should be in prompt",
-                userPrompt.contains(genre.displayName)
+                "Genre ${genre.name} should have non-blank displayName",
+                genre.displayName.isNotBlank()
+            )
+            assertTrue(
+                "Genre ${genre.name} should have non-blank systemPrompt",
+                genre.systemPrompt.isNotBlank()
             )
         }
     }

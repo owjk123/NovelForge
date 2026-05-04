@@ -18,7 +18,7 @@ class HomeViewModelTest {
 
     @Test
     fun `novel genre enum has all expected values`() {
-        val genres = NovelGenre.entries
+        val genres = NovelGenre.values()
         assertEquals(5, genres.size)
         assertTrue(genres.any { it.name == "FANTASY" })
         assertTrue(genres.any { it.name == "SCIFI" })
@@ -41,6 +41,7 @@ class HomeViewModelTest {
         assertTrue(prompt.contains("修仙之路"))
         assertTrue(prompt.contains("少年天才修仙者"))
         assertTrue(prompt.contains("九州大陆"))
+        assertTrue(prompt.contains(NovelGenre.FANTASY.systemPrompt))
     }
 
     @Test
