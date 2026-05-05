@@ -37,7 +37,23 @@ class GenerateChapterUseCase(
     ): Flow<GenerationState> {
         return try {
             val previousChapters = repository.getChaptersByNovelIdSync(novelId)
-            val previousContent = previousChapters.lastOrNull()?.content ?: ""
+            // 拼接前几章摘要 + 最后一章内容，提供充分上下文
+            val previousContent = buildString {
+                if (previousChapters.size > 1) {
+                    appendLine("【各章摘要】")
+                    for (ch in previousChapters.dropLast(1)) {
+                        if (ch.summary.isNotBlank()) {
+                            appendLine("第${ch.order}章: ${ch.summary}")
+                        } else {
+                            appendLine("第${ch.order}章: ${ch.content.take(100)}…")
+                        }
+                    }
+                    appendLine()
+                }
+                previousChapters.lastOrNull()?.let { last ->
+                    append(last.content)
+                }
+            }
             val chapterOrder = repository.getNextChapterOrder(novelId)
             
             val systemPrompt = NovelPromptBuilder.buildSystemPrompt()
@@ -122,8 +138,10 @@ class GenerateChapterUseCase(
             flow {
                 val result = streamingApiClient.generate(request)
                 result.fold(
-                    onSuccess = { content ->
-                        val updatedChapter = chapter.copy(content = content)
+                    onSuccess = { continuedContent ->
+                        val updatedChapter = chapter.copy(content = chapter.content + "
+
+" + continuedContent)
                         repository.updateChapter(updatedChapter)
                         emit(GenerationState.Success(updatedChapter))
                     },

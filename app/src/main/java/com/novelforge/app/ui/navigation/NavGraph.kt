@@ -101,10 +101,7 @@ fun NavGraph(
             WritingScreen(
                 novelId = novelId,
                 onNavigateBack = {
-                    // 从写作页返回时，回到书架Tab
-                    navController.navigate(BottomNavItem.Library.route) {
-                        popUpTo(BottomNavItem.Home.route)
-                    }
+                    navController.popBackStack()
                 }
             )
         }

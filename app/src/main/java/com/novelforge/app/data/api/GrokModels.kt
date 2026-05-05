@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 data class GrokRequest(
     val model: String = "grok-4.3",
     val messages: List<Message>,
-    val stream: Boolean = true,
+    val stream: Boolean = false,
     val temperature: Double = 0.8,
     @SerialName("max_tokens")
     val maxTokens: Int = 4096

@@ -95,7 +95,8 @@ object NovelPromptBuilder {
                 
                 if (params.previousContent.isNotBlank()) {
                     appendLine("【前情提要】")
-                    appendLine(params.previousContent.takeLast(500))
+                    // 取最后3000字符，确保跨章节上下文充分
+                    appendLine(params.previousContent.takeLast(3000))
                     appendLine()
                 }
                 

@@ -64,7 +64,7 @@ object ApiClient {
         cachedApiKey = apiKey
         cachedBaseUrl = baseUrl
         cachedRetrofit = Retrofit.Builder()
-            .baseUrl(baseUrl + "/")
+            .baseUrl(baseUrl.trimEnd('/') + "/")
             .client(okHttpClient)
             .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
             .build()

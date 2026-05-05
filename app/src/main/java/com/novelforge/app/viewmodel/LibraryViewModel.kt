@@ -1,11 +1,7 @@
 package com.novelforge.app.viewmodel
 
 import android.app.Application
-import android.content.ContentValues
 import android.content.Context
-import android.os.Build
-import android.os.Environment
-import android.provider.MediaStore
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.novelforge.app.data.db.AppDatabase
@@ -16,8 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import java.io.File
-import java.io.FileOutputStream
+import com.novelforge.app.util.NovelExporter
 
 data class LibraryUiState(
     val novels: List<Novel> = emptyList(),
@@ -99,10 +94,10 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 }
                 
                 val context = getApplication<Application>()
-                val content = buildExportContent(novel, chapters)
+                val content = NovelExporter.buildExportContent(novel, chapters)
                 val fileName = "${novel.title}.txt"
                 
-                val success = saveToDownloads(context, fileName, content)
+                val success = NovelExporter.saveToDownloads(context, fileName, content)
                 
                 if (success) {
                     _uiState.value = _uiState.value.copy(
