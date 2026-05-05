@@ -698,6 +698,7 @@ fun ChapterGuidanceBottomSheet(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun NovelInfoBottomSheet(
     novel: com.novelforge.app.data.model.Novel?,
     onConfirm: (String, String, String) -> Unit,

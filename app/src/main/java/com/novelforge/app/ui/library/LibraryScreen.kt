@@ -3,6 +3,7 @@ package com.novelforge.app.ui.library
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -365,6 +366,7 @@ fun NovelGrid(
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 fun NovelCard(
     novel: Novel,
     stats: NovelStats?,
