@@ -139,9 +139,7 @@ class GenerateChapterUseCase(
                 val result = streamingApiClient.generate(request)
                 result.fold(
                     onSuccess = { continuedContent ->
-                        val updatedChapter = chapter.copy(content = chapter.content + "
-
-" + continuedContent)
+                        val updatedChapter = chapter.copy(content = chapter.content + "\n\n" + continuedContent)
                         repository.updateChapter(updatedChapter)
                         emit(GenerationState.Success(updatedChapter))
                     },
