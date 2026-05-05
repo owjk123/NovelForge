@@ -33,4 +33,11 @@ interface ChapterDao {
     
     @Query("SELECT * FROM chapters WHERE novelId = :novelId ORDER BY `order` DESC LIMIT 1")
     suspend fun getLastChapter(novelId: Long): Chapter?
+    
+    // Statistics queries
+    @Query("SELECT COUNT(*) FROM chapters WHERE novelId = :novelId")
+    suspend fun getChapterCount(novelId: Long): Int
+    
+    @Query("SELECT SUM(LENGTH(content)) FROM chapters WHERE novelId = :novelId")
+    suspend fun getTotalWordCount(novelId: Long): Int?
 }

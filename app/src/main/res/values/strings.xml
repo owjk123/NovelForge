@@ -57,4 +57,30 @@
     <string name="navigation_home">创作</string>
     <string name="navigation_library">书架</string>
     <string name="navigation_settings">设置</string>
+    <!-- 书架重构新字符串 -->
+    <string name="search_hint">搜索小说标题</string>
+    <string name="sort_by">排序</string>
+    <string name="sort_last_updated">最近更新</string>
+    <string name="sort_created_time">创建时间</string>
+    <string name="sort_title">标题</string>
+    <string name="filter_all">全部</string>
+    <string name="chapter_count">%1$d章</string>
+    <string name="word_count">%1$s字</string>
+    <string name="last_updated">更新 %1$s</string>
+    <string name="empty_shelf">书架空空如也</string>
+    <string name="go_create">去创作</string>
+    <string name="view_details">查看详情</string>
+    <string name="delete_chapter">删除章节</string>
+    <string name="edit_title">编辑标题</string>
+    <string name="chapter_list">章节列表</string>
+    <string name="new_chapter">新建章节</string>
+    <string name="word_count_target">字数目标</string>
+    <string name="start_creating">开始创作</string>
+    <string name="edit_novel_info">编辑小说信息</string>
+    <string name="back_to_library">返回书架</string>
+    <string name="unsaved_changes">● 未保存</string>
+    <string name="total_words">共 %1$d 字</string>
+    <string name="ai_creating">AI正在创作中</string>
+    <string name="ready_to_create">准备开始创作</string>
+    <string name="click_to_start">点击下方按钮开始第一章的创作</string>
 </resources>

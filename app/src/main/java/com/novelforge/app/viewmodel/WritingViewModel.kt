@@ -25,19 +25,49 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 
+/**
+ * UI State for Writing screen
+ */
 data class WritingUiState(
     val novel: Novel? = null,
     val chapters: List<Chapter> = emptyList(),
-    val currentChapter: Chapter? = null,
+    val currentChapterIndex: Int = -1, // -1 means no chapter selected
     val displayContent: String = "",
+    val isEditing: Boolean = false, // manual editing mode
     val isGenerating: Boolean = false,
-    val generationProgress: String = "",
     val errorMessage: String? = null,
     val successMessage: String? = null,
-    val chapterSummary: String = "",
-    val showGuidanceDialog: Boolean = false,
-    val chapterGuidance: ChapterGuidance = ChapterGuidance()
-)
+    val showChapterList: Boolean = false, // chapter list bottom sheet
+    val showGuidanceSheet: Boolean = false, // AI generation bottom sheet
+    val showNovelInfoSheet: Boolean = false, // novel info edit sheet
+    val chapterGuidance: ChapterGuidance = ChapterGuidance(),
+    val targetWordCount: Int = 2000,
+    val editingChapterTitle: String = "", // for title editing dialog
+    val showEditTitleDialog: Boolean = false,
+    val showDeleteChapterDialog: Boolean = false,
+    val chapterToDelete: Chapter? = null
+) {
+    /**
+     * Get current chapter (if any)
+     */
+    val currentChapter: Chapter?
+        get() = if (currentChapterIndex >= 0 && currentChapterIndex < chapters.size) {
+            chapters[currentChapterIndex]
+        } else null
+    
+    /**
+     * Get word count of current content
+     */
+    val currentWordCount: Int
+        get() = displayContent.length
+    
+    /**
+     * Check if there's content to save
+     */
+    val hasUnsavedChanges: Boolean
+        get() = displayContent.isNotBlank() && currentChapter != null && 
+                displayContent != currentChapter?.content
+}
 
 class WritingViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -63,20 +93,65 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
         }
         viewModelScope.launch {
             repository.getChaptersByNovelId(novelId).collect { chapters ->
-                _uiState.value = _uiState.value.copy(chapters = chapters)
+                // Sort chapters by order
+                val sortedChapters = chapters.sortedBy { it.order }
+                
+                // If we have a current chapter index and it might be out of bounds after reload
+                val currentIndex = _uiState.value.currentChapterIndex
+                val newIndex = when {
+                    sortedChapters.isEmpty() -> -1
+                    currentIndex < 0 -> sortedChapters.size - 1 // Select last chapter on first load
+                    currentIndex >= sortedChapters.size -> sortedChapters.size - 1
+                    else -> currentIndex
+                }
+                
+                _uiState.value = _uiState.value.copy(
+                    chapters = sortedChapters,
+                    currentChapterIndex = newIndex,
+                    displayContent = if (newIndex >= 0) sortedChapters[newIndex].content else ""
+                )
             }
         }
     }
     
-    fun showGuidanceDialog() {
+    // Chapter navigation
+    fun selectChapter(index: Int) {
+        if (index < 0 || index >= _uiState.value.chapters.size) return
+        
         _uiState.value = _uiState.value.copy(
-            showGuidanceDialog = true,
+            currentChapterIndex = index,
+            displayContent = _uiState.value.chapters[index].content,
+            showChapterList = false
+        )
+    }
+    
+    // Content editing
+    fun updateContent(text: String) {
+        _uiState.value = _uiState.value.copy(
+            displayContent = text,
+            isEditing = true
+        )
+    }
+    
+    // Chapter list bottom sheet
+    fun showChapterList() {
+        _uiState.value = _uiState.value.copy(showChapterList = true)
+    }
+    
+    fun dismissChapterList() {
+        _uiState.value = _uiState.value.copy(showChapterList = false)
+    }
+    
+    // Guidance bottom sheet
+    fun showGuidanceSheet() {
+        _uiState.value = _uiState.value.copy(
+            showGuidanceSheet = true,
             chapterGuidance = ChapterGuidance()
         )
     }
     
-    fun dismissGuidanceDialog() {
-        _uiState.value = _uiState.value.copy(showGuidanceDialog = false)
+    fun dismissGuidanceSheet() {
+        _uiState.value = _uiState.value.copy(showGuidanceSheet = false)
     }
     
     fun updateGuidancePlotDirection(direction: String) {
@@ -97,8 +172,93 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
         )
     }
     
+    fun updateTargetWordCount(count: Int) {
+        _uiState.value = _uiState.value.copy(targetWordCount = count)
+    }
+    
+    // Novel info sheet
+    fun showNovelInfoSheet() {
+        _uiState.value = _uiState.value.copy(showNovelInfoSheet = true)
+    }
+    
+    fun dismissNovelInfoSheet() {
+        _uiState.value = _uiState.value.copy(showNovelInfoSheet = false)
+    }
+    
+    fun updateNovelInfo(
+        title: String,
+        characterSetting: String,
+        worldSetting: String
+    ) {
+        viewModelScope.launch {
+            _uiState.value.novel?.let { novel ->
+                val updated = novel.copy(
+                    title = title,
+                    characterSetting = characterSetting,
+                    worldSetting = worldSetting
+                )
+                repository.updateNovel(updated)
+                _uiState.value = _uiState.value.copy(
+                    showNovelInfoSheet = false,
+                    successMessage = "小说信息已更新"
+                )
+            }
+        }
+    }
+    
+    // Edit chapter title
+    fun showEditTitleDialog(chapter: Chapter) {
+        _uiState.value = _uiState.value.copy(
+            showEditTitleDialog = true,
+            editingChapterTitle = chapter.title
+        )
+    }
+    
+    fun dismissEditTitleDialog() {
+        _uiState.value = _uiState.value.copy(
+            showEditTitleDialog = false,
+            editingChapterTitle = ""
+        )
+    }
+    
+    fun updateChapterTitle(newTitle: String) {
+        viewModelScope.launch {
+            val chapter = _uiState.value.currentChapter ?: return@launch
+            val updated = chapter.copy(title = newTitle)
+            repository.updateChapter(updated)
+            dismissEditTitleDialog()
+        }
+    }
+    
+    // Delete chapter
+    fun showDeleteChapterDialog(chapter: Chapter) {
+        _uiState.value = _uiState.value.copy(
+            showDeleteChapterDialog = true,
+            chapterToDelete = chapter
+        )
+    }
+    
+    fun dismissDeleteChapterDialog() {
+        _uiState.value = _uiState.value.copy(
+            showDeleteChapterDialog = false,
+            chapterToDelete = null
+        )
+    }
+    
+    fun deleteChapter() {
+        viewModelScope.launch {
+            val chapter = _uiState.value.chapterToDelete ?: return@launch
+            repository.deleteChapter(chapter)
+            dismissDeleteChapterDialog()
+            
+            // Refresh to update the list and select another chapter
+            loadNovel(currentNovelId)
+        }
+    }
+    
+    // Generate new chapter
     fun generateNewChapter() {
-        dismissGuidanceDialog()
+        dismissGuidanceSheet()
         val novel = _uiState.value.novel ?: return
         val guidance = _uiState.value.chapterGuidance
         
@@ -115,6 +275,7 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
         _uiState.value = _uiState.value.copy(
             isGenerating = true,
             displayContent = "",
+            isEditing = false,
             errorMessage = null,
             successMessage = null
         )
@@ -126,7 +287,7 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
                 title = novel.title,
                 characterSetting = novel.characterSetting,
                 worldSetting = novel.worldSetting,
-                chapterSummary = _uiState.value.chapterSummary,
+                chapterSummary = "",
                 chapterGuidance = guidance
             ).collect { state ->
                 when (state) {
@@ -138,12 +299,11 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
                     is GenerationState.Success -> {
                         _uiState.value = _uiState.value.copy(
                             isGenerating = false,
-                            currentChapter = state.chapter,
                             displayContent = state.chapter.content,
-                            successMessage = "第${state.chapter.order}章生成完成",
-                            chapterSummary = "",
-                            chapterGuidance = ChapterGuidance()
+                            successMessage = "第${state.chapter.order}章生成完成"
                         )
+                        // Reload to update chapter list and select new chapter
+                        loadNovel(currentNovelId)
                     }
                     is GenerationState.Error -> {
                         _uiState.value = _uiState.value.copy(
@@ -156,11 +316,13 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     
+    // Continue writing
     fun continueWriting() {
         val novel = _uiState.value.novel ?: return
         
         _uiState.value = _uiState.value.copy(
             isGenerating = true,
+            isEditing = false,
             errorMessage = null,
             successMessage = null
         )
@@ -188,10 +350,11 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
                         is GenerationState.Success -> {
                             _uiState.value = _uiState.value.copy(
                                 isGenerating = false,
-                                currentChapter = state.chapter,
                                 displayContent = state.chapter.content,
                                 successMessage = "续写完成"
                             )
+                            // Reload to update
+                            loadNovel(currentNovelId)
                         }
                         is GenerationState.Error -> {
                             _uiState.value = _uiState.value.copy(
@@ -204,26 +367,25 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
         }
     }
     
-    fun updateChapterSummary(summary: String) {
-        _uiState.value = _uiState.value.copy(chapterSummary = summary)
-    }
-    
+    // Save draft
     fun saveDraft() {
         viewModelScope.launch {
-            _uiState.value.currentChapter?.let { chapter ->
-                val updated = chapter.copy(
-                    content = _uiState.value.displayContent,
-                    updatedAt = System.currentTimeMillis()
-                )
-                repository.updateChapter(updated)
-                _uiState.value = _uiState.value.copy(
-                    currentChapter = updated,
-                    successMessage = "保存成功"
-                )
-            }
+            val chapter = _uiState.value.currentChapter ?: return@launch
+            val updated = chapter.copy(
+                content = _uiState.value.displayContent,
+                updatedAt = System.currentTimeMillis()
+            )
+            repository.updateChapter(updated)
+            _uiState.value = _uiState.value.copy(
+                isEditing = false,
+                successMessage = "保存成功"
+            )
+            // Reload to update
+            loadNovel(currentNovelId)
         }
     }
     
+    // Export novel
     fun exportToDownloads() {
         viewModelScope.launch {
             val novel = _uiState.value.novel ?: return@launch

@@ -1,9 +1,15 @@
 package com.novelforge.app.ui.library
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -11,6 +17,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -18,8 +27,11 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.novelforge.app.R
 import com.novelforge.app.data.model.Novel
+import com.novelforge.app.data.repository.NovelStats
 import com.novelforge.app.domain.prompt.NovelGenre
+import com.novelforge.app.ui.theme.getGenreGradient
 import com.novelforge.app.viewmodel.LibraryViewModel
+import com.novelforge.app.viewmodel.SortType
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -106,6 +118,20 @@ fun LibraryScreen(
         )
     }
     
+    // 长按上下文菜单 BottomSheet
+    if (uiState.showContextMenu && uiState.selectedNovelForMenu != null) {
+        NovelContextBottomSheet(
+            novel = uiState.selectedNovelForMenu!!,
+            onDismiss = viewModel::dismissContextMenu,
+            onViewDetails = {
+                viewModel.dismissContextMenu()
+                onNavigateToWriting(uiState.selectedNovelForMenu!!.id)
+            },
+            onExport = { viewModel.showExportConfirmation(uiState.selectedNovelForMenu!!) },
+            onDelete = { viewModel.showDeleteConfirmation(uiState.selectedNovelForMenu!!) }
+        )
+    }
+    
     Scaffold(
         topBar = {
             TopAppBar(
@@ -129,56 +155,211 @@ fun LibraryScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
-        if (uiState.isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator()
-            }
-        } else if (uiState.novels.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+        ) {
+            // 搜索栏和排序
+            SearchAndSortBar(
+                searchQuery = uiState.searchQuery,
+                onSearchQueryChange = viewModel::updateSearchQuery,
+                sortType = uiState.sortType,
+                onSortTypeChange = viewModel::updateSortType
+            )
+            
+            // 类型筛选条
+            GenreFilterRow(
+                selectedGenre = uiState.selectedGenre,
+                onGenreSelected = viewModel::updateGenreFilter
+            )
+            
+            // 内容区域
+            if (uiState.isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.LibraryBooks,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Text(
-                        text = stringResource(R.string.empty_library),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    CircularProgressIndicator()
                 }
+            } else if (uiState.novels.isEmpty()) {
+                EmptyLibraryState(
+                    onCreateNovel = { /* Navigate to home */ }
+                )
+            } else {
+                NovelGrid(
+                    novels = uiState.novels,
+                    novelStats = uiState.novelStats,
+                    onNovelClick = { onNavigateToWriting(it.id) },
+                    onNovelLongClick = { viewModel.showContextMenu(it) }
+                )
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(paddingValues),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SearchAndSortBar(
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    sortType: SortType,
+    onSortTypeChange: (SortType) -> Unit
+) {
+    var showSortMenu by remember { mutableStateOf(false) }
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // 搜索框
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            modifier = Modifier.weight(1f),
+            placeholder = { Text("搜索小说标题") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Default.Search,
+                    contentDescription = "搜索"
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Default.Clear,
+                            contentDescription = "清除"
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(24.dp)
+        )
+        
+        // 排序按钮
+        Box {
+            IconButton(onClick = { showSortMenu = true }) {
+                Icon(
+                    imageVector = Icons.Default.Sort,
+                    contentDescription = "排序",
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+            
+            DropdownMenu(
+                expanded = showSortMenu,
+                onDismissRequest = { showSortMenu = false }
             ) {
-                items(uiState.novels, key = { it.id }) { novel ->
-                    NovelCard(
-                        novel = novel,
-                        onClick = { onNavigateToWriting(novel.id) },
-                        onDelete = { viewModel.showDeleteConfirmation(novel) },
-                        onExport = { viewModel.showExportConfirmation(novel) }
-                    )
-                }
+                DropdownMenuItem(
+                    text = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (sortType == SortType.LAST_UPDATED) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text("最近更新")
+                        }
+                    },
+                    onClick = {
+                        onSortTypeChange(SortType.LAST_UPDATED)
+                        showSortMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (sortType == SortType.CREATED_TIME) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text("创建时间")
+                        }
+                    },
+                    onClick = {
+                        onSortTypeChange(SortType.CREATED_TIME)
+                        showSortMenu = false
+                    }
+                )
+                DropdownMenuItem(
+                    text = { 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (sortType == SortType.TITLE) {
+                                Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                            }
+                            Text("标题")
+                        }
+                    },
+                    onClick = {
+                        onSortTypeChange(SortType.TITLE)
+                        showSortMenu = false
+                    }
+                )
             }
+        }
+    }
+}
+
+@Composable
+fun GenreFilterRow(
+    selectedGenre: NovelGenre?,
+    onGenreSelected: (NovelGenre?) -> Unit
+) {
+    val genres = listOf(
+        null to "全部",
+        NovelGenre.FANTASY to "玄幻",
+        NovelGenre.SCIFI to "科幻",
+        NovelGenre.URBAN to "都市",
+        NovelGenre.HAREM to "后宫",
+        NovelGenre.MYSTERY to "悬疑",
+        NovelGenre.CUSTOM to "自定义"
+    )
+    
+    LazyRow(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = PaddingValues(horizontal = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(genres) { (genre, label) ->
+            FilterChip(
+                selected = selectedGenre == genre,
+                onClick = { onGenreSelected(genre) },
+                label = { Text(label) },
+                colors = FilterChipDefaults.filterChipColors(
+                    selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun NovelGrid(
+    novels: List<Novel>,
+    novelStats: Map<Long, NovelStats>,
+    onNovelClick: (Novel) -> Unit,
+    onNovelLongClick: (Novel) -> Unit
+) {
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(2),
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        items(novels, key = { it.id }) { novel ->
+            NovelCard(
+                novel = novel,
+                stats = novelStats[novel.id],
+                onClick = { onNovelClick(novel) },
+                onLongClick = { onNovelLongClick(novel) }
+            )
         }
     }
 }
@@ -186,13 +367,14 @@ fun LibraryScreen(
 @Composable
 fun NovelCard(
     novel: Novel,
+    stats: NovelStats?,
     onClick: () -> Unit,
-    onDelete: () -> Unit,
-    onExport: () -> Unit
+    onLongClick: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("MM-dd", Locale.getDefault()) }
+    val (gradientStart, gradientEnd) = getGenreGradient(novel.genre)
     
-    // 解析类型
+    // 解析类型显示名称
     val genreDisplay = if (novel.genre.startsWith("CUSTOM:")) {
         novel.genre.substringAfter("CUSTOM:")
     } else {
@@ -206,91 +388,203 @@ fun NovelCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        )
+        shape = RoundedCornerShape(12.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        Column {
+            // 渐变色封面区域
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(100.dp)
+                    .background(
+                        brush = Brush.linearGradient(
+                            colors = listOf(gradientStart, gradientEnd)
+                        )
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = novel.title,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    SuggestionChip(
-                        onClick = { },
-                        label = { Text(genreDisplay, style = MaterialTheme.typography.labelSmall) }
+                    Text(
+                        text = novel.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.padding(horizontal = 12.dp)
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Surface(
+                        color = Color.White.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = genreDisplay,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+            
+            // 信息区域
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
+                // 章节统计
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = stats?.getFormattedChapterCount() ?: "0章",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = stats?.getFormattedWordCount() ?: "0字",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = novel.characterSetting,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // 最后更新时间
                 Text(
-                    text = "创建于 ${dateFormat.format(Date(novel.createdAt))}",
-                    style = MaterialTheme.typography.bodySmall,
+                    text = "更新 ${dateFormat.format(Date(novel.updatedAt))}",
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // 导出按钮
-                    FilledTonalIconButton(
-                        onClick = onExport,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.FileDownload,
-                            contentDescription = stringResource(R.string.export_novel),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                    // 删除按钮
-                    IconButton(
-                        onClick = onDelete,
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Delete,
-                            contentDescription = stringResource(R.string.delete_novel),
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun NovelContextBottomSheet(
+    novel: Novel,
+    onDismiss: () -> Unit,
+    onViewDetails: () -> Unit,
+    onExport: () -> Unit,
+    onDelete: () -> Unit
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState()
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+        ) {
+            // 标题
+            Text(
+                text = novel.title,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp)
+            )
+            
+            HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+            
+            // 查看详情
+            ListItem(
+                headlineContent = { Text("查看详情") },
+                leadingContent = {
+                    Icon(Icons.Default.Visibility, contentDescription = null)
+                },
+                modifier = Modifier.clickable(onClick = onViewDetails)
+            )
+            
+            // 导出
+            ListItem(
+                headlineContent = { Text("导出小说") },
+                leadingContent = {
+                    Icon(Icons.Default.FileDownload, contentDescription = null)
+                },
+                modifier = Modifier.clickable(onClick = onExport)
+            )
+            
+            // 删除
+            ListItem(
+                headlineContent = { 
+                    Text("删除", color = MaterialTheme.colorScheme.error)
+                },
+                leadingContent = {
+                    Icon(
+                        Icons.Default.Delete, 
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                },
+                modifier = Modifier.clickable(onClick = onDelete)
+            )
+        }
+    }
+}
+
+@Composable
+fun EmptyLibraryState(
+    onCreateNovel: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.LibraryBooks,
+            contentDescription = null,
+            modifier = Modifier.size(96.dp),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+        )
+        
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Text(
+            text = "书架空空如也",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Text(
+            text = "去创作第一本小说吧",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+        )
+        
+        Spacer(modifier = Modifier.height(32.dp))
+        
+        Button(
+            onClick = onCreateNovel,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = MaterialTheme.colorScheme.primary
+            )
+        ) {
+            Icon(
+                imageVector = Icons.Default.Create,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("去创作")
         }
     }
 }
