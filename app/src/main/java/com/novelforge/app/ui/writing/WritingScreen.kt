@@ -1,6 +1,7 @@
 package com.novelforge.app.ui.writing
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -441,7 +442,7 @@ fun EmptyChapterState(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ChapterListBottomSheet(
     chapters: List<Chapter>,
@@ -520,7 +521,7 @@ fun ChapterListBottomSheet(
                                     )
                                 }
                             },
-                            modifier = Modifier.clickable { onChapterSelect(index) }
+                            modifier = Modifier.combinedClickable(onClick = { onChapterSelect(index) }, onLongClick = { showChapterMenu = true })
                         )
                         
                         // Long press to show edit/delete menu

@@ -14,6 +14,7 @@ import com.novelforge.app.domain.usecase.GenerationState
 import com.novelforge.app.domain.usecase.GenerateChapterUseCase
 import com.novelforge.app.data.api.StreamingApiClient
 import com.novelforge.app.util.NovelExporter
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -41,23 +42,14 @@ data class WritingUiState(
     val showDeleteChapterDialog: Boolean = false,
     val chapterToDelete: Chapter? = null
 ) {
-    /**
-     * Get current chapter (if any)
-     */
     val currentChapter: Chapter?
         get() = if (currentChapterIndex >= 0 && currentChapterIndex < chapters.size) {
             chapters[currentChapterIndex]
         } else null
     
-    /**
-     * Get word count of current content
-     */
     val currentWordCount: Int
         get() = displayContent.length
     
-    /**
-     * Check if there's content to save
-     */
     val hasUnsavedChanges: Boolean
         get() = displayContent.isNotBlank() && currentChapter != null && 
                 displayContent != currentChapter?.content
@@ -78,23 +70,38 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
     
     private var currentNovelId: Long = 0
     
+    // Fix #1: Track collect jobs to avoid duplicate collectors
+    private var novelCollectJob: Job? = null
+    private var chaptersCollectJob: Job? = null
+    
+    // Fix #2: Flag to force-select last chapter after generate/delete
+    private var selectLastChapter = false
+    
     fun loadNovel(novelId: Long) {
         currentNovelId = novelId
-        viewModelScope.launch {
+        
+        // Cancel previous collect jobs before starting new ones
+        novelCollectJob?.cancel()
+        chaptersCollectJob?.cancel()
+        
+        novelCollectJob = viewModelScope.launch {
             repository.getNovelByIdFlow(novelId).collect { novel ->
                 _uiState.value = _uiState.value.copy(novel = novel)
             }
         }
-        viewModelScope.launch {
+        
+        chaptersCollectJob = viewModelScope.launch {
             repository.getChaptersByNovelId(novelId).collect { chapters ->
-                // Sort chapters by order
                 val sortedChapters = chapters.sortedBy { it.order }
                 
-                // If we have a current chapter index and it might be out of bounds after reload
                 val currentIndex = _uiState.value.currentChapterIndex
                 val newIndex = when {
                     sortedChapters.isEmpty() -> -1
-                    currentIndex < 0 -> sortedChapters.size - 1 // Select last chapter on first load
+                    selectLastChapter -> {
+                        selectLastChapter = false
+                        sortedChapters.size - 1
+                    }
+                    currentIndex < 0 -> sortedChapters.size - 1
                     currentIndex >= sortedChapters.size -> sortedChapters.size - 1
                     else -> currentIndex
                 }
@@ -244,9 +251,8 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
             val chapter = _uiState.value.chapterToDelete ?: return@launch
             repository.deleteChapter(chapter)
             dismissDeleteChapterDialog()
-            
-            // Refresh to update the list and select another chapter
-            loadNovel(currentNovelId)
+            // Flag to select last chapter after reload
+            selectLastChapter = true
         }
     }
     
@@ -296,8 +302,8 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
                             displayContent = state.chapter.content,
                             successMessage = "第${state.chapter.order}章生成完成"
                         )
-                        // Reload to update chapter list and select new chapter
-                        loadNovel(currentNovelId)
+                        // Flag to select the new (last) chapter on next chapters emission
+                        selectLastChapter = true
                     }
                     is GenerationState.Error -> {
                         _uiState.value = _uiState.value.copy(
@@ -347,8 +353,7 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
                                 displayContent = state.chapter.content,
                                 successMessage = "续写完成"
                             )
-                            // Reload to update
-                            loadNovel(currentNovelId)
+                            // Chapter content updated via Flow, no need to reload
                         }
                         is GenerationState.Error -> {
                             _uiState.value = _uiState.value.copy(
@@ -374,8 +379,7 @@ class WritingViewModel(application: Application) : AndroidViewModel(application)
                 isEditing = false,
                 successMessage = "保存成功"
             )
-            // Reload to update
-            loadNovel(currentNovelId)
+            // Chapter content updated via Flow, no need to reload
         }
     }
     
