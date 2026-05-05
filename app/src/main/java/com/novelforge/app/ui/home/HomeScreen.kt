@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -92,26 +93,38 @@ fun HomeScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            // 当前配置显示
+            // 当前配置显示 - 更紧凑的设计
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.secondaryContainer
-                )
+                ),
+                shape = RoundedCornerShape(12.dp)
             ) {
-                Text(
-                    text = stringResource(R.string.current_config, displayEndpoint, displayModel),
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(12.dp),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    textAlign = TextAlign.Center
-                )
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(R.string.current_config, displayEndpoint, displayModel),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                }
             }
             
             Column(
@@ -120,6 +133,7 @@ fun HomeScreen(
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
+                // 标题区域
                 Text(
                     text = "创建新小说",
                     style = MaterialTheme.typography.headlineMedium,
@@ -135,7 +149,8 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .height(100.dp),
                     maxLines = 4,
-                    placeholder = { Text("描述你的故事构思，如：\"一个少年在末世中觉醒异能，踏上拯救世界的旅途\"") }
+                    placeholder = { Text("描述你的故事构思，如：\"一个少年在末世中觉醒异能，踏上拯救世界的旅途\"") },
+                    shape = RoundedCornerShape(12.dp)
                 )
                 
                 // AI自动填充按钮
@@ -145,7 +160,8 @@ fun HomeScreen(
                     enabled = !uiState.isAutoFilling && uiState.storyDescription.isNotBlank(),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.tertiary
-                    )
+                    ),
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     if (uiState.isAutoFilling) {
                         CircularProgressIndicator(
@@ -166,27 +182,32 @@ fun HomeScreen(
                     }
                 }
                 
-                HorizontalDivider()
+                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 
+                // 小说基本信息标题
                 Text(
                     text = "小说基本信息",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
                 
+                // 标题输入
                 OutlinedTextField(
                     value = uiState.title,
                     onValueChange = viewModel::updateTitle,
                     label = { Text(stringResource(R.string.novel_title_hint)) },
                     modifier = Modifier.fillMaxWidth(),
-                    singleLine = true
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 
+                // 类型选择标签
                 Text(
                     text = stringResource(R.string.select_genre),
                     style = MaterialTheme.typography.titleSmall
                 )
                 
+                // 类型选择器
                 GenreSelector(
                     selectedGenre = uiState.selectedGenre,
                     customGenreName = uiState.customGenreName,
@@ -194,6 +215,7 @@ fun HomeScreen(
                     onCustomGenreNameChange = viewModel::updateCustomGenreName
                 )
                 
+                // 主角设定
                 OutlinedTextField(
                     value = uiState.characterSetting,
                     onValueChange = viewModel::updateCharacterSetting,
@@ -201,9 +223,11 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp),
-                    maxLines = 5
+                    maxLines = 5,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 
+                // 世界观设定
                 OutlinedTextField(
                     value = uiState.worldSetting,
                     onValueChange = viewModel::updateWorldSetting,
@@ -211,17 +235,23 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(120.dp),
-                    maxLines = 5
+                    maxLines = 5,
+                    shape = RoundedCornerShape(12.dp)
                 )
                 
                 Spacer(modifier = Modifier.height(8.dp))
                 
+                // 创建按钮 - 更醒目
                 Button(
                     onClick = { viewModel.createNovel(onNavigateToWriting) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
-                    enabled = !uiState.isCreating
+                        .height(60.dp),
+                    enabled = !uiState.isCreating,
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
                 ) {
                     if (uiState.isCreating) {
                         CircularProgressIndicator(
@@ -234,15 +264,16 @@ fun HomeScreen(
                             contentDescription = null,
                             modifier = Modifier.size(24.dp)
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             text = stringResource(R.string.start_writing),
-                            style = MaterialTheme.typography.titleMedium
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(32.dp))
             }
         }
     }
@@ -274,7 +305,8 @@ fun GenreSelector(
                             showCustomInput = (genre == NovelGenre.CUSTOM)
                         },
                         label = { Text(genre.displayName) },
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp)
                     )
                 }
                 if (rowGenres.size < 3) {
@@ -291,7 +323,8 @@ fun GenreSelector(
                 label = { Text("自定义类型名称") },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                placeholder = { Text("例如：修仙、穿越、末日生存等") }
+                placeholder = { Text("例如：修仙、穿越、末日生存等") },
+                shape = RoundedCornerShape(12.dp)
             )
         }
     }

@@ -53,4 +53,53 @@ class NovelRepository(
     suspend fun getLastChapter(novelId: Long): Chapter? = chapterDao.getLastChapter(novelId)
     
     suspend fun getNextChapterOrder(novelId: Long): Int = getMaxChapterOrder(novelId) + 1
+    
+    // Statistics operations
+    /**
+     * Get statistics for a novel including chapter count and total word count
+     */
+    suspend fun getNovelStats(novelId: Long): NovelStats {
+        val chapterCount = chapterDao.getChapterCount(novelId)
+        val totalWordCount = chapterDao.getTotalWordCount(novelId) ?: 0
+        return NovelStats(
+            chapterCount = chapterCount,
+            totalWordCount = totalWordCount
+        )
+    }
+    
+    /**
+     * Get statistics for multiple novels
+     */
+    suspend fun getNovelStatsMap(novelIds: List<Long>): Map<Long, NovelStats> {
+        return novelIds.associateWith { novelId ->
+            getNovelStats(novelId)
+        }
+    }
+}
+
+/**
+ * Statistics data class for a novel
+ */
+data class NovelStats(
+    val chapterCount: Int,
+    val totalWordCount: Int
+) {
+    /**
+     * Format total word count to display string
+     * e.g., 3200 -> "3.2万字"
+     */
+    fun getFormattedWordCount(): String {
+        return when {
+            totalWordCount >= 10000 -> String.format("%.1f万字", totalWordCount / 10000.0)
+            totalWordCount >= 1000 -> String.format("%.1f千字", totalWordCount / 1000.0)
+            else -> "${totalWordCount}字"
+        }
+    }
+    
+    /**
+     * Format chapter count with "章" suffix
+     */
+    fun getFormattedChapterCount(): String {
+        return "${chapterCount}章"
+    }
 }
